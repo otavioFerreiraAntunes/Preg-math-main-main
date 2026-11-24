@@ -43,7 +43,27 @@ export default function QuestionCard({ question }) {
   //Isso força o MathJax a reprocessar e "desenhar" os símbolos matemáticos na tela sempre que o usuário muda de questão ou interage com o card.
 
   const normalizeValidacao = (valor) => String(valor || '').trim().toLowerCase();
-  const isRight = (alt) => ['s', 'sim', 'true', '1', 'correta', 'certo'].includes(normalizeValidacao(alt.validacao || alt.Validacao));
+  const isRight = (alt) => {
+    if (!alt) return false;
+    // 1. Verifica pela coluna de validação direta
+    const val = normalizeValidacao(alt.validacao || alt.Validacao);
+    if (['s', 'sim', 'true', '1', 'correta', 'certo'].includes(val)) {
+      return true;
+    }
+    // 2. Se a validação não estiver marcada, verifica se o comentário contém o gabarito desta alternativa
+    const comentario = String(alt.comentario || alt.Comentario || '');
+    const enunciadoAlt = String(alt.enunciado || alt.Enunciado || '').trim();
+    const letraAltMatch = enunciadoAlt.match(/^([a-e])\)/i);
+    if (letraAltMatch && comentario) {
+      const letra = letraAltMatch[1].toUpperCase();
+      // Ex: "Gabarito: B" ou "Gabarito: B."
+      const gabaritoMatch = comentario.match(/Gabarito:\s*([A-E])/i);
+      if (gabaritoMatch && gabaritoMatch[1].toUpperCase() === letra) {
+        return true;
+      }
+    }
+    return false;
+  };
    //A validação é feita pela função helper normalizeValidacao, que converte o valor para string, remove espaços e coloca em minúsculas.
   const getCorrectAlternative = () => alternativas.find((alt) => isRight(alt)); // Procura a alternativa correta
 
