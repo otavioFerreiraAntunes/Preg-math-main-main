@@ -1,11 +1,15 @@
 import axios from 'axios';
 
 // Define a URL base da API.
-// Caso exista uma variável de ambiente, ela será utilizada.
-// Caso contrário, será usado o servidor local.
+// Em produção na Vercel (onde frontend e backend rodam no mesmo domínio),
+// uma string vazia '' faz as requisições irem para rotas relativas (/auth, /busca).
+// Em desenvolvimento local, usa o localhost:3000 se VITE_API_URL não estiver definida.
 const baseURL =
-  import.meta.env.VITE_API_URL ||
-  'http://localhost:3000';
+  import.meta.env.VITE_API_URL !== undefined
+    ? import.meta.env.VITE_API_URL
+    : import.meta.env.PROD
+    ? ''
+    : 'http://localhost:3000';
 
 // Cria uma instância do Axios com configurações padrão.
 // Assim todas as requisições utilizam a mesma configuração.
