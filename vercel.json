@@ -6,10 +6,10 @@
       "use": "@vercel/node"
     },
     {
-      "src": "client/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "client/dist"
       }
     }
   ],
@@ -23,12 +23,11 @@
       "dest": "/app.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/client/dist/assets/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/client/dist/index.html"
+      "dest": "/index.html"
     }
   ]
 }

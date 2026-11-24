@@ -63,14 +63,19 @@ if (process.env.NODE_ENV === 'production') {
 // INICIAR O SERVIDOR
 // ============================================================
 
-app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log('🚀 Servidor rodando!');
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`💾 Banco de Dados: PostgreSQL`);
-  console.log('='.repeat(50));
-  console.log('📋 Rotas principais disponíveis:');
-  console.log(`   Raiz:  http://localhost:${PORT}/`);
-  console.log(`   Busca: http://localhost:${PORT}/busca/questoes-tema`);
-  console.log('='.repeat(50));
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('='.repeat(50));
+    console.log('🚀 Servidor rodando!');
+    console.log(`📍 URL: http://localhost:${PORT}`);
+    console.log(`💾 Banco de Dados: PostgreSQL`);
+    console.log('='.repeat(50));
+    console.log('📋 Rotas principais disponíveis:');
+    console.log(`   Raiz:  http://localhost:${PORT}/`);
+    console.log(`   Busca: http://localhost:${PORT}/busca/questoes-tema`);
+    console.log('='.repeat(50));
+  });
+}
+
+// Exporta a aplicação Express para a Vercel Serverless Function
+module.exports = app;

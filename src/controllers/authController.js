@@ -1,101 +1,113 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const pool = require('../config/database');
 
 // ============================================================
 // FUNÇÃO: login
 // ROTA: POST /auth/login
 // DESCRIÇÃO:
-// Recebe as credenciais enviadas pelo frontend,
-// verifica se estão corretas e gera um token JWT.
+// Autenticação com banco de dados PostgreSQL (admin_user)
+// e validação de hash com bcryptjs (conforme Guia do Hub do Conhecimento).
+// Possui fallback para variáveis de ambiente (.env) caso a tabela
+// ainda não tenha sido criada no Supabase.
 // ============================================================
 async function login(req, res) {
+  // Suporta tanto 'usuario'/'senha' quanto 'email'/'password'
+  const usuario = req.body.usuario || req.body.email;
+  const senha = req.body.senha || req.body.password;
 
-  // Recebe o e-mail e a senha enviados pelo frontend.
-  const { email, password } = req.body;
-
-  // Verifica se os dois campos foram preenchidos.
-  // Caso algum esteja vazio, retorna erro 400.
-  if (!email || !password) {
+  if (!usuario || !senha) {
     return res.status(400).json({
-      mensagem: 'E-mail e senha são obrigatórios'
+      erro: 'Informe usuário e senha.',
+      mensagem: 'Informe usuário e senha.'
     });
   }
 
   try {
+    const secret = process.env.JWT_SECRET || 'secret_jwt_default';
 
-    // Busca no arquivo .env o usuário autorizado.
-    const authUser = process.env.AUTH_USER;
+    // 1. Tentar buscar no banco de dados (tabela admin_user)
+    try {
+      const resultado = await pool.query(
+        'SELECT * FROM admin_user WHERE usuario = $1',
+        [usuario]
+      );
 
-    // Busca no .env a senha autorizada.
-    const authPassword = process.env.AUTH_PASSWORD;
+      if (resultado.rows.length > 0) {
+        const admin = resultado.rows[0];
 
-    // Compara os dados enviados pelo usuário
-    // com os cadastrados no .env.
-    if (email !== authUser || password !== authPassword) {
+        // Compara a senha informada com o hash salvo no banco
+        const senhaValida = await bcrypt.compare(senha, admin.senha_hash);
+        if (!senhaValida) {
+          return res.status(401).json({
+            erro: 'Credenciais inválidas.',
+            mensagem: 'Credenciais inválidas.'
+          });
+        }
 
-      // Caso não coincidam, retorna erro de autenticação.
-      return res.status(401).json({
-        mensagem: 'Credenciais inválidas'
-      });
+        // Gera token JWT de sessão
+        const token = jwt.sign(
+          { id: admin.id, usuario: admin.usuario, role: 'admin' },
+          secret,
+          { expiresIn: '2h' }
+        );
 
+        return res.json({
+          mensagem: 'Autenticação realizada com sucesso!',
+          token,
+          user: {
+            id: admin.id,
+            name: admin.usuario,
+            email: admin.usuario,
+            usuario: admin.usuario,
+            role: 'admin'
+          }
+        });
+      }
+    } catch (dbError) {
+      // Se a tabela admin_user ainda não existir no banco, continua para o fallback
+      console.warn('⚠️ Consulta admin_user falhou (ou tabela inexistente), usando fallback do .env:', dbError.message);
     }
 
-    // Cria o payload do JWT.
-    // Essas informações ficarão armazenadas dentro do token.
-    const payload = {
-      email: authUser,
-      role: 'admin'
-    };
+    // 2. Fallback: autenticação por variáveis de ambiente (.env)
+    const authUser = process.env.AUTH_USER;
+    const authPassword = process.env.AUTH_PASSWORD;
 
-    // Busca a chave secreta utilizada para assinar o JWT.
-    // Caso ela não exista, utiliza uma chave padrão.
-    const secret =
-      process.env.JWT_SECRET ||
-      'secret_jwt_default';
+    if (authUser && authPassword && usuario === authUser && senha === authPassword) {
+      const token = jwt.sign(
+        { email: authUser, role: 'admin' },
+        secret,
+        { expiresIn: '2h' }
+      );
 
-    // Gera o token JWT.
-    // O token será assinado usando:
-    // - o payload
-    // - a chave secreta
-    // - validade de 2 horas
-    const token = jwt.sign(
-      payload,
-      secret,
-      {
-        expiresIn: '2h'
-      }
-    );
+      return res.status(200).json({
+        mensagem: 'Autenticação realizada com sucesso!',
+        token,
+        user: {
+          id: 1,
+          name: 'Administrador',
+          email: authUser,
+          usuario: authUser,
+          role: 'admin'
+        }
+      });
+    }
 
-    // Envia o JWT e os dados do usuário para o frontend.
-    res.status(200).json({
-
-      token,
-
-      user: {
-
-        name: 'Administrador',
-        email: authUser,
-        role: 'admin'
-
-      },
-
+    // Se nenhum método coincidiu
+    return res.status(401).json({
+      erro: 'Credenciais inválidas.',
+      mensagem: 'Credenciais inválidas.'
     });
 
   } catch (err) {
-
-    // Caso ocorra algum erro inesperado,
-    // registra o erro no console do servidor.
     console.error('Erro no login:', err);
-
-    // Retorna erro interno ao frontend.
-    res.status(500).json({
-      mensagem: 'Erro interno'
+    return res.status(500).json({
+      erro: 'Erro interno do servidor.',
+      mensagem: 'Erro interno do servidor.'
     });
-
   }
-
 }
 
-// Exporta a função para ser utilizada nas rotas.
 module.exports = {
   login,
 };
